@@ -4,6 +4,7 @@ permissions:
   contents: write
 
 on:
+  workflow_dispatch:
   schedule:
     # 毎週金曜日の日本時間 08:40頃に実行
     # (JST 08:40 = UTC 23:40 前日)
