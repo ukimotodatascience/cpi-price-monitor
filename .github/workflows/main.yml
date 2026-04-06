@@ -1,0 +1,65 @@
+name: CPI Data Fetcher
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # 毎週金曜日の日本時間 08:40頃に実行
+    # (JST 08:40 = UTC 23:40 前日)
+    - cron: '40 23 * * 4' 
+
+jobs:
+  check-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check if it is the release day
+        id: date_check
+        run: |
+          # 日本時間の今日の日付を取得
+          DAY=$(TZ='Asia/Tokyo' date +%d)
+          echo "Today is day $DAY"
+          
+          # 「19日を含む週の金曜日」は、必ず19日〜25日の間に当たります
+          # ※19日が土曜なら金曜は18日になるため、厳密には18-24日
+          if [ $DAY -ge 18 ] && [ $DAY -le 24 ]; then
+            echo "match=true" >> $GITHUB_OUTPUT
+          else
+            echo "match=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        if: steps.date_check.outputs.match == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests
+
+      - name: Execute Main Task
+        if: steps.date_check.outputs.match == 'true'
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          STATS_DATA_ID: ${{ secrets.STATS_DATA_ID }}
+        run: |
+          echo "消費者物価指数の公表タイミングです。処理を開始します。"
+          python main.py
+
+      - name: Commit and push if changed
+        if: steps.date_check.outputs.match == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/snapshot
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update CPI snapshot data"
+            git push
+          fi
