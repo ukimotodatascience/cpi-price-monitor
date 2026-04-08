@@ -50,17 +50,18 @@ jobs:
           STATS_DATA_ID: ${{ secrets.STATS_DATA_ID }}
         run: |
           echo "消費者物価指数の公表タイミングです。処理を開始します。"
-          python main.py
+          python main.py fetch
+          python main.py report
 
       - name: Commit and push if changed
         if: steps.date_check.outputs.match == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/snapshot
+          git add data/snapshot reports
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update CPI snapshot data"
+            git commit -m "chore: update CPI snapshot data and monthly report"
             git push
           fi
